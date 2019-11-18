@@ -1,0 +1,456 @@
+# Deploys FOSSA core (web application + backend), agent (runs asynchrounous tasks), + various watchdogs
+
+
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: fossa
+  namespace: fossa
+spec:
+  type: LoadBalancer
+  selector:
+    app: fossa
+    tier: edge
+    deployment: production
+    mode: standard
+  ports:
+  - name: fossa-http
+    protocol: TCP
+    port: 80
+    targetPort: 80
+  - name: fossa-https
+    protocol: TCP
+    port: 443
+    targetPort: 443
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: fossa-core-deployment
+  namespace: fossa
+spec:
+  replicas: 2
+  revisionHistoryLimit: 2
+  template:
+    metadata:
+      labels:
+        app: fossa
+        tier: edge
+        deployment: production
+        mode: standard
+    spec:
+      automountServiceAccountToken: false
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          # Prefer not to schedule this pod onto a node that's already running a copy of this pod
+          - weight: 2
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - fossa
+                - key: tier
+                  operator: In
+                  values:
+                  - edge
+                - key: deployment
+                  operator: In
+                  values:
+                  - production
+              topologyKey: kubernetes.io/hostname
+          # Prefer not to schedule this pod in an availability zone that's already running a copy of this pod
+          - weight: 1
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - fossa
+                - key: tier
+                  operator: In
+                  values:
+                  - edge
+                - key: deployment
+                  operator: In
+                  values:
+                  - production
+              topologyKey: failure-domain.beta.kubernetes.io/zone
+      volumes:
+      - name: config-volume
+        configMap:
+          name: config
+      initContainers:
+      - name: check-db-ready
+        image: quay.io/fossa/fossa:{{ .Values.image.tag }}
+        command: ['sh', '-c',
+          'until pg_isready -h database.fossa.svc.cluster.local  -p 5432;
+          do echo waiting for database; sleep 60; done;']    
+      containers:
+      - name: fossa-core
+        command:
+        - /fossa/tsnode
+        - /fossa/server
+        env:
+        - name: SRCLIBPATH
+          value: /usr/local/.srclib-tc
+        - name: CONFIG_FILE
+          value: /etc/fossa/config/config.json
+        image: quay.io/fossa/fossa:{{ .Values.image.tag }}
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+        - containerPort: 443
+        volumeMounts:
+        - mountPath: /etc/fossa/config
+          name: config-volume
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 80
+            scheme: HTTP
+          initialDelaySeconds: 900
+          periodSeconds: 120
+          failureThreshold: 3
+          timeoutSeconds: 1
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 80
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          failureThreshold: 15
+          timeoutSeconds: 1
+      restartPolicy: Always
+      dnsPolicy: ClusterFirst
+      imagePullSecrets:
+      - name: quay.io
+  strategy:
+    rollingUpdate:
+      maxSurge: 50%
+      maxUnavailable: 25%
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: fossa-agent-deployment
+  namespace: fossa
+spec:
+  replicas: 4
+  revisionHistoryLimit: 2
+  template:
+    metadata:
+      labels:
+        app: fossa
+        tier: consumer
+        deployment: production
+        mode: standard
+    spec:
+      hostAliases: 
+      - ip: "{{ .Values.hostip  | required " host ip address is required " }}"
+        hostnames:
+        - "{{ .Values.miniohostname }}"     
+      automountServiceAccountToken: false
+      volumes:
+      - name: ca-pemstore
+        configMap:
+          name: ca-pemstore        
+      - name: config-volume
+        configMap:
+          name: config
+      initContainers:
+      - name: check-db-ready
+        image: quay.io/fossa/fossa:release
+        command: ['sh', '-c',
+          'until pg_isready -h database.fossa.svc.cluster.local  -p 5432;
+          do echo waiting for database; sleep 60; done;']    
+      containers:
+      - name: fossa-agent
+        command:
+        - /fossa/tsnode
+        - /fossa/agent
+        env:
+        - name: SRCLIBPATH
+          value: /usr/local/.srclib-tc
+        - name: CONFIG_FILE
+          value: /etc/fossa/config/config.json
+        - name: NODE_EXTRA_CA_CERTS
+          value: /opt/fossa/cert/minio.pem  
+        image: quay.io/fossa/fossa:{{ .Values.image.tag }}
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: ca-pemstore
+          mountPath: /opt/fossa/cert/minio.pem
+          subPath: minio.pem
+          readOnly: false       
+        - mountPath: /etc/fossa/config
+          name: config-volume
+        livenessProbe:
+          exec:
+            command:
+              - /fossa/tsnode
+              - tools/health.ts
+          initialDelaySeconds: 120
+          periodSeconds: 1800
+          failureThreshold: 3
+          successThreshold: 1
+        readinessProbe:
+          exec:
+            command:
+              - /fossa/tsnode
+              - tools/health.ts
+          initialDelaySeconds: 120
+          periodSeconds: 10
+          failureThreshold: 3
+          successThreshold: 1
+      restartPolicy: Always
+      dnsPolicy: ClusterFirst
+      imagePullSecrets:
+      - name: quay.io
+  strategy:
+    rollingUpdate:
+      maxSurge: 30%
+      maxUnavailable: 50%
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: fossa-revision-watchdog-deployment
+  namespace: fossa
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  template:
+    metadata:
+      labels:
+        app: fossa
+        tier: watchdogs
+        deployment: production
+        mode: standard
+    spec:
+      automountServiceAccountToken: false
+      volumes:
+      - name: config-volume
+        configMap:
+          name: config
+      initContainers:
+      - name: check-db-ready
+        image: quay.io/fossa/fossa:{{ .Values.image.tag }}
+        command: ['sh', '-c',
+          'until pg_isready -h database.fossa.svc.cluster.local  -p 5432;
+          do echo waiting for database; sleep 60; done;']    
+      containers:
+      - name: fossa-revision-watchdog
+        command:
+        - /fossa/tsnode
+        - /fossa/watchdogs/revision
+        env:
+        - name: SRCLIBPATH
+          value: /usr/local/.srclib-tc
+        - name: CONFIG_FILE
+          value: /etc/fossa/config/config.json
+        image: quay.io/fossa/fossa:release
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - mountPath: /etc/fossa/config
+          name: config-volume
+      restartPolicy: Always
+      dnsPolicy: ClusterFirst
+      imagePullSecrets:
+      - name: quay.io
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: fossa-updatehook-watchdog-deployment
+  namespace: fossa
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  template:
+    metadata:
+      labels:
+        app: fossa
+        tier: watchdogs
+        deployment: production
+        mode: standard
+    spec:
+      automountServiceAccountToken: false
+      volumes:
+      - name: config-volume
+        configMap:
+          name: config
+      initContainers:
+      - name: check-db-ready
+        image: quay.io/fossa/fossa:{{ .Values.image.tag }}
+        command: ['sh', '-c',
+          'until pg_isready -h database.fossa.svc.cluster.local  -p 5432;
+          do echo waiting for database; sleep 60; done;']    
+      containers:
+      - name: fossa-updatehook-watchdog
+        command:
+        - /fossa/tsnode
+        - /fossa/watchdogs/updateHook
+        env:
+        - name: SRCLIBPATH
+          value: /usr/local/.srclib-tc
+        - name: CONFIG_FILE
+          value: /etc/fossa/config/config.json
+        image: quay.io/fossa/fossa:release
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - mountPath: /etc/fossa/config
+          name: config-volume
+      restartPolicy: Always
+      dnsPolicy: ClusterFirst
+      imagePullSecrets:
+      - name: quay.io
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: fossa-dependencylock-watchdog-deployment
+  namespace: fossa
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  template:
+    metadata:
+      labels:
+        app: fossa
+        tier: watchdogs
+        deployment: production
+        mode: standard
+    spec:
+      automountServiceAccountToken: false
+      volumes:
+      - name: config-volume
+        configMap:
+          name: config
+      initContainers:
+      - name: check-db-ready
+        image: quay.io/fossa/fossa:{{ .Values.image.tag }}
+        command: ['sh', '-c',
+          'until pg_isready -h database.fossa.svc.cluster.local  -p 5432;
+          do echo waiting for database; sleep 60; done;']    
+      containers:
+      - name: fossa-dependencylock-watchdog
+        command:
+        - /fossa/tsnode
+        - /fossa/watchdogs/dependencyLock
+        env:
+        - name: SRCLIBPATH
+          value: /usr/local/.srclib-tc
+        - name: CONFIG_FILE
+          value: /etc/fossa/config/config.json
+        image: quay.io/fossa/fossa:{{ .Values.image.tag }}
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - mountPath: /etc/fossa/config
+          name: config-volume
+      restartPolicy: Always
+      dnsPolicy: ClusterFirst
+      imagePullSecrets:
+      - name: quay.io
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: fossa-task-watchdog-deployment
+  namespace: fossa
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  template:
+    metadata:
+      labels:
+        app: fossa
+        tier: watchdogs
+        deployment: production
+        mode: standard
+    spec:
+      automountServiceAccountToken: false
+      volumes:
+      - name: config-volume
+        configMap:
+          name: config
+      initContainers:
+      - name: check-db-ready
+        image: quay.io/fossa/fossa:{{ .Values.image.tag }}
+        command: ['sh', '-c',
+          'until pg_isready -h database.fossa.svc.cluster.local  -p 5432;
+          do echo waiting for database; sleep 60; done;']    
+      containers:
+      - name: fossa-task-watchdog
+        command:
+        - /fossa/tsnode
+        - /fossa/watchdogs/task
+        env:
+        - name: SRCLIBPATH
+          value: /usr/local/.srclib-tc
+        - name: CONFIG_FILE
+          value: /etc/fossa/config/config.json
+        image: quay.io/fossa/fossa:{{ .Values.image.tag }}
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - mountPath: /etc/fossa/config
+          name: config-volume
+      restartPolicy: Always
+      dnsPolicy: ClusterFirst
+      imagePullSecrets:
+      - name: quay.io
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: fossa-integrationhook-watchdog-deployment
+  namespace: fossa
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  template:
+    metadata:
+      labels:
+        app: fossa
+        tier: watchdogs
+        deployment: production
+        mode: standard
+    spec:
+      automountServiceAccountToken: false
+      volumes:
+      - name: config-volume
+        configMap:
+          name: config
+      initContainers:
+      - name: check-db-ready
+        image: quay.io/fossa/fossa:{{ .Values.image.tag }}
+        command: ['sh', '-c',
+          'until pg_isready -h database.fossa.svc.cluster.local  -p 5432;
+          do echo waiting for database; sleep 60; done;']    
+      containers:
+      - name: fossa-integrationhook-watchdog
+        command:
+        - /fossa/tsnode
+        - /fossa/watchdogs/integrationHook
+        env:
+        - name: SRCLIBPATH
+          value: /usr/local/.srclib-tc
+        - name: CONFIG_FILE
+          value: /etc/fossa/config/config.json
+        image: quay.io/fossa/fossa:{{ .Values.image.tag }}
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - mountPath: /etc/fossa/config
+          name: config-volume
+      restartPolicy: Always
+      dnsPolicy: ClusterFirst
+      imagePullSecrets:
+      - name: quay.io

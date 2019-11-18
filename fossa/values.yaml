@@ -1,0 +1,28 @@
+
+
+secret: 60f7e466f818f42ceacb927d7f057c285e5ca1032b8ef5b2f49ca9715859f5af
+fossahostname: null
+miniohostname: null
+miniousername: minio
+miniopassword: minio123
+hostip: null
+google:
+  enabled: false
+  clientID: 
+  clientSecret:
+
+image:
+  tag: release
+
+saml:
+  enabled: true
+
+email:
+  from: support@fossa.io
+  module: nodemailer-smtp-transport
+  host: localhost
+  port: 1025
+  secure: false
+  ignoreTLS: true
+  debug: true
+  secureconnections: false

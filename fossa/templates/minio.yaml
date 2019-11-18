@@ -1,0 +1,90 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: fossa      
+  name: minio
+  labels:
+    app: fossa
+    tier: storage
+    deployment: production
+    role: master
+spec:
+  type: ClusterIP
+  ports:
+  - name: minio
+    port: 80
+    protocol: TCP
+    targetPort: minio
+  selector:
+    app: fossa
+    tier: storage
+    deployment: production
+    role: master
+  sessionAffinity: None
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: minio
+  namespace: fossa
+spec:
+  podManagementPolicy: OrderedReady
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: fossa
+      tier: storage
+      deployment: production
+      role: master
+  serviceName: mianio
+  template:
+    metadata:
+      labels:
+        app: fossa
+        tier: storage
+        deployment: production
+        role: master
+    spec:
+      volumes:   
+      - name: minio-data
+        hostPath:
+          path: /opt/fossa/minio/  
+      containers:
+      - name: minio
+        image: minio/minio
+        imagePullPolicy: Always
+        command:
+        - minio
+        - "--compat"
+        - server
+        - /data
+        ports:
+        - containerPort: 9000
+          name: minio
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 500m
+            memory: 1Gi
+          requests:
+            cpu: 500m
+            memory: 1Gi
+        env:
+        - name: MINIO_ACCESS_KEY
+          value: {{ .Values.miniousername }}
+        - name: MINIO_SECRET_KEY
+          value: {{ .Values.miniopassword }}
+        volumeMounts:
+        - mountPath: /data
+          name: minio-data
+          readOnly: false
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      securityContext:
+        fsGroup: 1001
+        runAsUser: 1001
+      terminationGracePeriodSeconds: 30
+  updateStrategy:
+    type: OnDelete

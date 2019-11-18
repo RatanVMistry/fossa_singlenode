@@ -1,0 +1,112 @@
+    {
+      "debug": false,
+      "secret": "{{ .Values.secret }}",
+      "app": {
+        "hostname": "{{ .Values.fossahostname }}",
+	"bind_port": 80,
+        "port": 443,
+        "hsts": 604800,
+        "redirect_server": {
+          "enabled": false
+        },
+        "on_prem": true,
+        "disable_terms": true,
+        "server": {
+          "type": "http",
+          "key": "/etc/fossa/secrets/tls.key",
+          "cert": "/etc/fossa/secrets/tls.crt"
+        },
+        "trust_proxy": true
+        },
+      "db": {
+        "host": "database.fossa.svc.cluster.local",
+        "port": 5432,
+        "username": "fossa",
+        "password": "fossa123",
+        "database": "fossa"
+        },
+      "cocoapods_api": {
+        "enabled": false,
+        "protocol": "http",
+        "hostname": "fossa-cocoapods-api.fossa.svc.cluster.local",
+        "port": 9292
+        },
+      "email": {
+        "from": "{{ .Values.email.from }}",
+        "transport": {
+          "module": "{{ .Values.email.module}}",
+          "options": {
+            "host": "{{ .Values.email.host}}",
+            "port": {{ .Values.email.port }},
+            "secure": {{ .Values.email.secure }},
+            "ignoreTLS": {{ .Values.email.ignoreTLS }},
+            "debug": {{ .Values.email.debug }},
+            "secureConnection": {{ .Values.email.secureconnections }}
+          }
+        }
+        },
+      "slack": {
+        "enabled": true,
+        "credentials": {
+          "oauth2": {
+            "callback": "",
+            "client_id": "",
+            "client_secret": ""
+          }
+        }
+        },
+      "cache": {
+        "package": {
+          "engine": "s3",
+          "bucket": "fossa.net",
+          "store_private": false,
+          "s3Options": {
+            "accessKeyId": "{{ .Values.miniousername }}",
+            "secretAccessKey": "{{ .Values.miniopassword }}",
+            "endpoint": "{{ .Values.miniohostname }}"
+          }
+        }
+      },
+      "logging": {
+        "level": "info",
+        "dir": "/fossa/public/data/.logs"
+      },
+      "BOM_CLI_BINARY": "/fossa/tools/fossa-cli",
+      "metrics": {
+        "enabled": false,
+        "access_token": "/http bearer token for prometheus /metrics"
+      },
+      "sso": {
+        "google": {
+          "enabled": {{ .Values.google.enabled }},
+          "clientID": "{{ .Values.google.clientID }}",
+          "clientSecret": "{{ .Values.google.clientSecret }}"
+        },
+        "saml": {
+          "enabled": {{ .Values.saml.enabled }}
+        }
+      },
+      "builds": {
+        "fossa_ci": false
+      },
+      "redis": {
+        "enabled": false,
+        "host": "fossa-redis-master.fossa.svc.cluster.local/minio/fossa",
+        "port": 6379,
+        "password": "change me"
+      },
+      "s3": {
+        "accessKeyId": "{{ .Values.miniousername }}",
+        "secretAccessKey": "{{ .Values.miniopassword }}",
+        "endpoint": "{{ .Values.miniohostname }}"
+      },
+      "componentUploader": {
+              "bucket": "fossa.net"
+      },
+      "locks": {
+        "cleanup_on_start": false
+      }
+    
+
+    
+      }
