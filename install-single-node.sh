@@ -146,7 +146,7 @@ kubectl create ns fossa
 #Create FOSSA directories
 cd /opt; mkdir -p fossa; cd fossa; mkdir -p database; mkdir -p minio; chmod 777 database; chmod 777 minio
 # Create image pull secret for Quay to pull images
-cd /opt/fossa_helm/
+cd /opt/fossa_singlenode/
 
 # install helm
 echo -e "*************** Install Tiller  *************** \n"
@@ -172,7 +172,7 @@ helm init --service-account tiller
 echo -e "*************** Tiller initialized  *************** \n"
 
 # move to working directory
-cd /opt/fossa_helm
+cd /opt/fossa_singlenode
 
 while true; do
   node_status=`kubectl get node | awk 'FNR == 2 {print $2}'`
