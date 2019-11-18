@@ -25,7 +25,7 @@ spec:
     port: 443
     targetPort: 443
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: fossa-core-deployment
@@ -33,6 +33,12 @@ metadata:
 spec:
   replicas: 2
   revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: fossa
+      tier: edge
+      deployment: production
+      mode: standard
   template:
     metadata:
       labels:
@@ -136,7 +142,7 @@ spec:
       maxSurge: 50%
       maxUnavailable: 25%
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: fossa-agent-deployment
@@ -144,6 +150,12 @@ metadata:
 spec:
   replicas: 4
   revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: fossa
+      tier: consumer
+      deployment: production
+      mode: standard
   template:
     metadata:
       labels:
@@ -220,7 +232,7 @@ spec:
       maxSurge: 30%
       maxUnavailable: 50%
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: fossa-revision-watchdog-deployment
@@ -228,6 +240,12 @@ metadata:
 spec:
   replicas: 1
   revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: fossa
+      tier: watchdogs
+      deployment: production
+      mode: standard
   template:
     metadata:
       labels:
@@ -267,7 +285,7 @@ spec:
       imagePullSecrets:
       - name: quay.io
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: fossa-updatehook-watchdog-deployment
@@ -275,6 +293,12 @@ metadata:
 spec:
   replicas: 1
   revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: fossa
+      tier: watchdogs
+      deployment: production
+      mode: standard
   template:
     metadata:
       labels:
@@ -314,7 +338,7 @@ spec:
       imagePullSecrets:
       - name: quay.io
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: fossa-dependencylock-watchdog-deployment
@@ -322,6 +346,12 @@ metadata:
 spec:
   replicas: 1
   revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: fossa
+      tier: watchdogs
+      deployment: production
+      mode: standard
   template:
     metadata:
       labels:
@@ -361,7 +391,7 @@ spec:
       imagePullSecrets:
       - name: quay.io
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: fossa-task-watchdog-deployment
@@ -369,6 +399,12 @@ metadata:
 spec:
   replicas: 1
   revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: fossa
+      tier: watchdogs
+      deployment: production
+      mode: standard
   template:
     metadata:
       labels:
@@ -408,7 +444,7 @@ spec:
       imagePullSecrets:
       - name: quay.io
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: fossa-integrationhook-watchdog-deployment
@@ -416,6 +452,12 @@ metadata:
 spec:
   replicas: 1
   revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: fossa
+      tier: watchdogs
+      deployment: production
+      mode: standard
   template:
     metadata:
       labels:
