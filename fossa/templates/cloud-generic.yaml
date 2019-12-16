@@ -9,6 +9,7 @@ metadata:
 spec:
   externalTrafficPolicy: Local
   type: LoadBalancer
+  loadBalancerIP: "{{ .Values.hostip  | required " host ip address is required " }}"
   selector:
     app.kubernetes.io/name: ingress-nginx
     app.kubernetes.io/part-of: ingress-nginx

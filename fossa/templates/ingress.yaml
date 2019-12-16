@@ -21,30 +21,30 @@ spec:
           serviceName: fossa
           servicePort: 80
 
-# ---
+---
 
-# apiVersion: extensions/v1beta1
-# kind: Ingress
-# metadata:
-#   name: minio-ingress
-#   namespace: fossa
-#   annotations:
-#     kubernetes.io/ingress.class: nginx
-#     nginx.ingress.kubernetes.io/proxy-body-size: 1000m
-#     nginx.org/client-max-body-size: 1000m
-#     nginx.org/proxy-connect-timeout: 30s
-#     nginx.org/proxy-read-timeout: 20s
-#     nginx.org/proxy-write-timeout: 15m
-# spec:
-#   tls:
-#   - hosts:
-#     - {{ .Values.miniohostname }}
-#     secretName: tls-ssl-minio  
-#   rules:
-#   - host: {{ .Values.miniohostname }}
-#     http:
-#       paths:
-#       - backend:
-#           serviceName: minio
-#           servicePort: 80
-#         path: /  
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: minio-ingress
+  namespace: fossa
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/proxy-body-size: 1000m
+    nginx.org/client-max-body-size: 1000m
+    nginx.org/proxy-connect-timeout: 30s
+    nginx.org/proxy-read-timeout: 20s
+    nginx.org/proxy-write-timeout: 15m
+spec:
+  tls:
+  - hosts:
+    - {{ .Values.miniohostname }}
+    secretName: tls-ssl-minio  
+  rules:
+  - host: {{ .Values.miniohostname }}
+    http:
+      paths:
+      - backend:
+          serviceName: minio
+          servicePort: 80
+        path: /  
