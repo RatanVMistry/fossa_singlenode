@@ -47,10 +47,6 @@ spec:
         deployment: production
         role: master
     spec:
-      volumes:   
-      - name: postgres-data
-        hostPath:
-          path: /opt/fossa/database 
       containers:
       - name: postgresql
         image: quay.io/fossa/db:v1
@@ -94,5 +90,13 @@ spec:
       terminationGracePeriodSeconds: 30
       imagePullSecrets:
       - name: quay.io
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 20Gi
   updateStrategy:
     type: OnDelete

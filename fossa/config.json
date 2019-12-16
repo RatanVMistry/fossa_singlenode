@@ -3,7 +3,7 @@
       "secret": "{{ .Values.secret }}",
       "app": {
         "hostname": "{{ .Values.fossahostname }}",
-	"bind_port": 80,
+	      "bind_port": 80,
         "port": 443,
         "hsts": 604800,
         "redirect_server": {
@@ -37,11 +37,11 @@
           "module": "{{ .Values.email.module}}",
           "options": {
             "host": "{{ .Values.email.host}}",
-            "port": {{ .Values.email.port }},
-            "secure": {{ .Values.email.secure }},
-            "ignoreTLS": {{ .Values.email.ignoreTLS }},
-            "debug": {{ .Values.email.debug }},
-            "secureConnection": {{ .Values.email.secureconnections }}
+            "port": "{{ .Values.email.port }}",
+            "secure": "{{ .Values.email.secure }}",
+            "ignoreTLS": "{{ .Values.email.ignoreTLS }}",
+            "debug": "{{ .Values.email.debug }}",
+            "secureConnection": "{{ .Values.email.secureconnections }}"
           }
         }
         },
@@ -58,7 +58,7 @@
       "cache": {
         "package": {
           "engine": "s3",
-          "bucket": "fossa.net",
+          "bucket": "fossa1.net",
           "store_private": false,
           "s3Options": {
             "accessKeyId": "{{ .Values.miniousername }}",
@@ -78,12 +78,12 @@
       },
       "sso": {
         "google": {
-          "enabled": {{ .Values.google.enabled }},
+          "enabled": "{{ .Values.google.enabled }}",
           "clientID": "{{ .Values.google.clientID }}",
           "clientSecret": "{{ .Values.google.clientSecret }}"
         },
         "saml": {
-          "enabled": {{ .Values.saml.enabled }}
+          "enabled": "{{ .Values.saml.enabled }}"
         }
       },
       "builds": {
@@ -101,7 +101,7 @@
         "endpoint": "{{ .Values.miniohostname }}"
       },
       "componentUploader": {
-              "bucket": "fossa.net"
+              "bucket": "fossa1.net"
       },
       "locks": {
         "cleanup_on_start": false
