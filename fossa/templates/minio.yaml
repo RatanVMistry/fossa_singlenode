@@ -47,10 +47,6 @@ spec:
         deployment: production
         role: master
     spec:
-      volumes:   
-      - name: minio-data
-        hostPath:
-          path: /opt/fossa/minio/  
       containers:
       - name: minio
         image: minio/minio
@@ -86,5 +82,13 @@ spec:
         fsGroup: 1001
         runAsUser: 1001
       terminationGracePeriodSeconds: 30
+  volumeClaimTemplates:
+  - metadata:
+      name: minio-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 50Gi
   updateStrategy:
     type: OnDelete
